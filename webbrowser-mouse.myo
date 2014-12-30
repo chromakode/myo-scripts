@@ -1,0 +1,209 @@
+-- based on uk.me.foreversonic.webbrowsernavigation by Simon Shirley
+scriptId = "com.chromakode.webbrowsernavigationwithmouse"
+scriptDetailsUrl = ""
+scriptTitle = "Web Browser Navigation (+ Mouse Control)"
+
+appTitle = ""
+startingPitch = 0
+isScrolling = false
+lastTime = 0
+pitchTolerance = 0.15
+
+function onForegroundWindowChange(app, title)
+	if myo.mouseControlEnabled() then
+		myo.unlock("hold")
+		myo.controlMouse(true)
+		return true
+	end
+
+	if platform == "Windows" then
+		if app == "firefox.exe" then
+			appTitle = "Mozilla Firefox"
+			return true
+		elseif title == "Microsoft Silverlight" then
+			appTitle = "Microsoft Silverlight"
+			return true
+		elseif app == "chrome.exe" then
+			appTitle = "Google Chrome"
+			return true
+		elseif app == "iexplore.exe" then
+			appTitle = "Microsoft Internet Explorer"
+			return true
+		end
+	elseif platform == "MacOS" then
+		-- insert Mac package names here
+		if app == "org.mozilla.firefox" then
+			appTitle = "Mozilla Firefox"
+			return true
+		elseif app == "com.google.Chrome" then
+			appTitle = "Google Chrome"
+			return true
+		elseif app == "com.apple.Safari" then
+			appTitle = "Apple Safari"
+			return true
+		end
+	end
+end
+
+function activeAppName()
+	return appTitle
+end
+
+function onActiveChange(isActive)
+	if not isActive then
+		isScrolling = false
+	end
+end
+
+function onPoseEdge(pose, edge)
+	if myo.mouseControlEnabled() and pose == "fist" then
+		if (edge == "on") then
+			myo.mouse("left", "down")
+			return
+		else
+			myo.mouse("left", "up")
+		end
+	end
+
+	pose = conditionallySwapWave(pose)
+	
+	if (edge == "on") then
+		if myo.isUnlocked() then
+			if (pose == "waveLeft") then
+				-- Hand points to the left \
+				onWaveLeft()
+			elseif (pose == "waveRight") then
+				-- Hand points to the right /
+				onWaveRight()	
+			elseif (pose == "fist") then
+				onFist()
+			elseif (pose == "fingersSpread") then
+				onFingersSpread()
+			end
+		end
+	else
+		releaseScrollHold()
+	end
+end
+
+function onPeriodic()
+	local now = myo.getTimeMilliseconds()
+	if isScrolling then
+		local scrollTime = now
+		local differenceTime = scrollTime - lastTime
+
+		if scrollTime - lastTime > 100 then
+			local currentPitch = myo.getPitch()
+			local differencePitch = currentPitch - startingPitch 
+
+			if differencePitch > pitchTolerance then
+				myo.keyboard("up_arrow", "press")
+			elseif differencePitch < -pitchTolerance then
+				myo.keyboard("down_arrow", "press")
+			end
+
+			lastTime = now
+		end
+	end
+end
+
+function conditionallySwapWave(pose)
+	if myo.getArm() == "left" then
+        	if pose == "waveIn" then
+            		pose = "waveRight"
+        	elseif pose == "waveOut" then
+            		pose = "waveLeft"
+        	end
+	else
+		if pose == "waveIn" then
+            		pose = "waveLeft"
+        	elseif pose == "waveOut" then
+            		pose = "waveRight"
+        	end
+    	end
+
+    	return pose
+end
+
+function onWaveLeft()
+	-- Fingers point to the left (regardless of hand) \
+
+	releaseScrollHold()	
+
+	if platform == "MacOS" then
+		myo.keyboard("left_arrow", "press", "command")
+	else
+		if appTitle == "Microsoft Silverlight" then
+			myo.keyboard("left_arrow", "press")
+			myo.unlock("timed")
+		else
+			myo.keyboard("left_arrow", "press", "alt")
+		end
+	end
+
+	myo.notifyUserAction()
+end
+
+function onWaveRight()
+	-- Fingers point to the right (regardless of hand) /
+	
+	releaseScrollHold()
+
+	if platform == "MacOS" then
+		myo.keyboard("right_arrow", "press", "command")
+	else
+		if appTitle == "Microsoft Silverlight" then
+			myo.keyboard("right_arrow", "press")
+			myo.unlock("timed")
+		else
+			myo.keyboard("right_arrow", "press", "alt")
+		end
+	end
+
+	myo.notifyUserAction()
+end
+
+function onFist()
+	-- Used for scrolling
+
+	myo.unlock("hold")
+
+	startingPitch = myo.getPitch()
+	lastTime = myo.getTimeMilliseconds()
+	isScrolling = true
+
+	myo.notifyUserAction()
+end
+
+function onFingersSpread()
+	-- Pause Silverlight player
+
+	if appTitle == "Microsoft Silverlight" then
+		myo.keyboard("space", "press")
+		return
+	end
+
+	-- Mouse control on web pages
+
+	handStart = myo.getTimeMilliseconds()
+
+	releaseScrollHold()
+
+	if myo.mouseControlEnabled() then
+		myo.lock("hold")
+		myo.controlMouse(false)
+		myo.mouse("left", "up")
+	else
+		myo.unlock("hold")
+		myo.controlMouse(true)
+	end
+
+	myo.notifyUserAction()
+end
+
+function releaseScrollHold()
+	if isScrolling then
+		isScrolling = false
+		myo.unlock("timed")
+	end
+end
